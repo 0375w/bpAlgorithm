@@ -5,11 +5,14 @@
 #include <vector>
 #include <cmath>
 #include <iomanip>
+#include <fstream>
 
 using namespace std;
 
 typedef double DB;
 typedef long long LL;
+typedef vector<vector<DB>> dataType;
+typedef vector<DB> resultType;
 
 const DB eps = 1e-6;
 const DB errorRate = 0.0001;
@@ -291,33 +294,68 @@ struct bpAlgorithm {
                     << endl;
         }
     }
+
+    void predict(dataType& X_test, resultType& y_test)
+    {
+        DB predictErrorSum = 0.0;
+        for (int id = 0; id < X_test.size(); ++id){
+                //放入信息到输入神经元
+                for (int i = 0; i < bpNet[0].node.size(); ++i)
+                    bpNet[0].node[i].out = X_test[id][i];
+
+                //前向传播
+                forward_propagation();
+
+                //计算误差和
+                DB t = bpNet.back().node[0].out - y_test[id];
+                predictErrorSum += fabs(t);
+        }
+        cout << "Predict : " << endl;
+        printf("error sum : %.10lf\n", predictErrorSum);
+    }
 };
+
+
+//按照devideRate切割为train和test
+void devide_data(dataType& X_train, resultType& y_train, dataType& X_test, 
+                resultType& y_test, dataType& X_data, resultType& y_data, DB devideRate = 0.8)
+{
+    int lim = X_data.size() * devideRate;
+    for (int i = 0; i < lim; ++i)
+        X_train.push_back(X_data[i]), y_train.push_back(y_data[i]);
+    for (int i = lim; i < X_data.size(); ++i)
+        X_test.push_back(X_data[i]), y_test.push_back(y_data[i]);
+}
 
 int main()
 {
-    //freopen("ls.csv", "r", stdin);
-    int T = 0, n = 0;
-    cout << "number of test" << endl;
-    cin >> T;
-    cout << "dimension of X" << endl;
-    cin >> n;
+    vector<vector<DB>> X_train, X_test, X_data;
+    vector<DB> y_train, y_test, y_data;
+    ifstream fp("ls.csv", ios::in);
 
-    bpAlgorithm bp(n, T, 200, 1, 1, 0.01);
-
-    vector<vector<DB>> X_train;
-    vector<DB> y_train;
-    for(int rd = 0;rd < T; ++rd){
+    //读入数据
+    int n, T;
+    fp >> T >> n;
+    for (int i = 0; i < T; ++i){
         vector<DB> tmpx;
-        for (int i = 0; i < n;++i){
-            tmpx.push_back(0);
-            cin >> tmpx[i];
-        }
-        X_train.push_back(tmpx);
-        y_train.push_back(0);
-        cin >> y_train[rd];
+        for (int j = 0; j < n; ++j)
+            tmpx.push_back(0), fp >> tmpx[j];
+        y_data.push_back(0);
+        fp >> y_data[i];
+        X_data.push_back(tmpx);
     }
 
+    //分割训练集和测试集
+    devide_data(X_train, y_train, X_test, y_test, X_data, y_data, 0.8);
+
+    //初始化bp
+    bpAlgorithm bp(n, T, 200, 1, 1, 0.0001);
+
+    //训练
     bp.train(X_train, y_train);
     bp.print_result();
+
+    //预测
+    bp.predict(X_test, y_test);
     return 0;
 }
